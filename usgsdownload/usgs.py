@@ -330,12 +330,9 @@ class RemoteFileDoesntExist(Exception):
     pass
 
 
-<<<<<<< HEAD
 class ProductInvalidError(Exception):
     pass
 
 
-=======
->>>>>>> 476453911ab8c735d02de53c9994bb4a79132b39
 class InvalidBandError(Exception):
     pass
