@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-version = '0.2'
+version = '0.3'
 
 setup(name='USGSDownload',
       version=version,
@@ -10,7 +10,7 @@ setup(name='USGSDownload',
       author='Lucas Lamounier',
       author_email='lucasls.oas@gmail.com',
       url='https://github.com/lucaslamounier/USGSDownload/',
-      download_url='https://github.com/lucaslamounier/USGSDownload/tarball/0.2',
+      download_url='https://github.com/lucaslamounier/USGSDownload/tarball/0.3',
       license='MIT',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
       include_package_data=True,
