@@ -80,8 +80,8 @@ class USGSDownload:
         if not user and not password or not user or not password:
             raise CredentialsUsgsError('Missing user and password !')
 
-        print('\n', self.url)
-        logger.debug(self.url)
+        print('\n', self.__repr__())
+        logger.debug(self.__repr__())
 
     def validate_sceneInfo(self):
         """Check scene name and whether remote file exists. Raises
@@ -122,10 +122,13 @@ class USGSDownload:
             self.connect_earthexplorer()
             self.get_remote_file_size(url)
 
-    def download(self, bands, download_dir=None):
+    def download(self, bands=None, download_dir=None):
         """Download remote .tar.bz file."""
         if not download_dir:
             download_dir = DOWNLOAD_DIR
+
+        if bands is None:
+            bands = list(range(1, 12)) + ['BQA']
 
         self.validate_bands(bands)
         pattern = re.compile('^[^\s]+_(.+)\.tiff?', re.I)
