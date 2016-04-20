@@ -1,4 +1,4 @@
-# usgs_download
+# USGSDownload
 
 Name                 : USGSDownload
 Description          : Landsat Data download from earth explorer
@@ -7,7 +7,7 @@ copyright            : (C) 2016 by Lucas Lamounier
 email                : lucasls.oas@gmail.com
 
 Instalation
-**************************************************************************
+****************************************************************************
 pip install USGSDownload
 
 
