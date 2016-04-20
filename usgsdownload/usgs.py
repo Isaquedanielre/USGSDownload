@@ -206,8 +206,8 @@ class USGSDownload:
     def download_file(self, url, download_dir, sceneName):
         """ Downloads large files in pieces   """
         try:
-            logger.info('\nStarting download_file..')
-            print('\n Starting download_file..')
+            logger.info('\nStarting download..')
+            print('\n Starting download..\n')
             req = urllib.request.urlopen(url)
             try:
                 if req.info().get_content_type() == 'text/html':
@@ -219,7 +219,7 @@ class USGSDownload:
                         print(lignes)
                         print(sys.exit(-1))
             except Exception as e:
-                logger.error('\nStarting download_file..')
+                logger.error('\nStarting download..')
                 print('\n Erro: ', e)
                 raise CredentialsUsgsError('User or Password invalid ! ')
             total_size = int(req.getheader('Content-Length').strip())
@@ -339,3 +339,6 @@ class ProductInvalidError(Exception):
 
 class InvalidBandError(Exception):
     pass
+
+if __name__ == '__main__':
+    import pdb; pdb.set_trace()
