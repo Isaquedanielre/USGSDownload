@@ -206,9 +206,9 @@ class USGSDownload:
                     'You must sign in as a registered user to download data or place orders for USGS EROS products') > 0:
                 print("\n Authentification failed")
                 logger.error("Authentification failed")
-                sys.exit(-1)
-            print('\n connected with usgs')
-            logger.debug('connected with usgs')
+                raise AutenticationUSGSFailed('Authentification USGS failed')
+            print('User %s connected with USGS' % self.user)
+            logger.debug('User %s connected with USGS' % self.user)
             return
         except Exception as e:
             print('\nError when trying to connect USGS: %s' % e)
@@ -346,6 +346,10 @@ class WrongSceneNameError(Exception):
 
 
 class CredentialsUsgsError(Exception):
+    pass
+
+
+class AutenticationUSGSFailed(Exception):
     pass
 
 
