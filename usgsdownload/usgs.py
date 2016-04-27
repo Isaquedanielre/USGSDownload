@@ -122,7 +122,7 @@ class USGSDownload:
             self.connect_earthexplorer()
             self.get_remote_file_size(url)
 
-    def download(self, bands=None, download_dir=None, metada=None):
+    def download(self, bands=None, download_dir=None, metadata=False):
         """Download remote .tar.bz file."""
         if not download_dir:
             download_dir = DOWNLOAD_DIR
