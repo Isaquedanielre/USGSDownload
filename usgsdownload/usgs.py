@@ -17,7 +17,6 @@ Basic usage
 
 """
 
-
 import logging
 import re
 import requests
@@ -34,6 +33,7 @@ from os import makedirs, remove, listdir
 logger = logging.getLogger(__name__)
 
 DOWNLOAD_DIR = join(expanduser('~'), 'landsat')
+
 
 # Class base sceneInfo
 class SceneInfo:
@@ -122,29 +122,40 @@ class USGSDownload:
             self.connect_earthexplorer()
             self.get_remote_file_size(url)
 
-    def download(self, bands=None, download_dir=None):
+    def download(self, bands=None, download_dir=None, metada=None):
         """Download remote .tar.bz file."""
         if not download_dir:
             download_dir = DOWNLOAD_DIR
 
         if bands is None:
             bands = list(range(1, 12)) + ['BQA']
+        else:
+            self.validate_bands(bands)
 
-        self.validate_bands(bands)
         pattern = re.compile('^[^\s]+_(.+)\.tiff?', re.I)
         band_list = ['B%i' % (i,) if isinstance(i, int) else i for i in bands]
         image_list = []
+
+        # Connect Earth explore
         self.connect_earthexplorer()
+
+        # tgz name
         tgzname = self.sceneInfo.name + '.tgz'
         dest_dir = check_create_folder(join(download_dir, self.sceneInfo.name))
 
+        # Download File
         downloaded = self.download_file(self.url, dest_dir, tgzname)
+
+        # Log
         logger.debug('Status downloaded %s' % downloaded)
         print('\n Status downloaded %s' % downloaded)
 
         if downloaded['sucess']:
+
+            # Log
             print('\n Downloaded sucess')
-            logger.info('Downloaded sucess')
+            logger.debug('Downloaded sucess of scene: %s' % self.sceneInfo.name)
+
             try:
 
                 tar = tarfile.open(downloaded['file_path'], 'r')
@@ -206,93 +217,102 @@ class USGSDownload:
     def download_file(self, url, download_dir, sceneName):
         """ Downloads large files in pieces   """
         try:
+            # Log
             logger.info('\nStarting download..')
             print('\n Starting download..\n')
+
+            # Request
             req = urllib.request.urlopen(url)
+
             try:
                 if req.info().get_content_type() == 'text/html':
                     logger.error("error : the file format is html")
-                    lignes = req.read()
-                    if lignes.find('Download Not Found') > 0:
-                        raise TypeError
+                    lines = req.read()
+                    if lines.find('Download Not Found') > 0:
+                        raise TypeError('Download USGS not found for scene: %s' % self.sceneInfo.name)
                     else:
-                        print(lignes)
+                        print(lines)
                         print(sys.exit(-1))
             except Exception as e:
-                logger.error('\nStarting download..')
-                print('\n Erro: ', e)
+                logger.error('Erro in USGS download for scene %s error: %s' % (self.sceneInfo.name, e))
                 raise CredentialsUsgsError('User or Password invalid ! ')
+
             total_size = int(req.getheader('Content-Length').strip())
+
             if total_size < 50000:
-                print("Error: The file is too small to be a Landsat Image")
-                print(url)
-                logger.error("Error: The file is too small to be a Landsat Image")
-                logger.debug(url)
-                sys.exit(-1)
-            logger.debug(sceneName, total_size)
+                logger.error("Error: The file is too small to be a Landsat Image for scene %s" % self.sceneInfo.name)
+                raise SmallLandsatImageError("Error: The file is too small to be a Landsat Image")
+
             total_size_fmt = sizeof_fmt(total_size)
             downloaded = 0
             CHUNK = 1024 * 1024 * 8
             with open(download_dir + '/' + sceneName, 'wb') as fp:
                 start = time.clock()
-                logger.debug('Downloading {0} ({1}):'.format(sceneName, total_size_fmt))
-                print('Downloading {0} ({1}):'.format(sceneName, total_size_fmt))
+                logger.debug('Downloading {0} ({1}):'.format(self.sceneInfo.name, total_size_fmt))
+                print('Downloading {0} ({1}):'.format(self.sceneInfo.name, total_size_fmt))
                 while True:
                     chunk = req.read(CHUNK)
                     downloaded += len(chunk)
                     done = int(50 * downloaded / total_size)
-                    sys.stdout.write('\r[{1}{2}]{0:3.0f}% {3}ps'.format(floor((float(downloaded)
-                                                                               / total_size) * 100), '-' * done,
-                                                                        ' ' * (50 - done),
-                                                                        sizeof_fmt(
-                                                                            (
-                                                                                downloaded // (
-                                                                                time.clock() - start)) / 8)))
-                    sys.stdout.flush()
+                    print('\r[{1}{2}]{0:3.0f}% {3}ps'.format(floor((float(downloaded) / total_size) * 100), '-' * done,
+                                                             ' ' * (50 - done), sizeof_fmt((downloaded //
+                                                                                          (time.clock() - start)) / 8)))
                     if not chunk:
+                        logger.debug('Download {0} completed({1}):'.format(self.sceneInfo.name, total_size_fmt))
                         break
                     fp.write(chunk)
         except urllib.error.HTTPError as e:
             if e.code == 500:
                 logger.error("File doesn't exist")
                 print("\n File doesn't exist: %s " % e)
+                raise RemoteFileDoesntExist("File doesn't exist")
             elif e.code == 403:
+                # Log celery
+                logger.error("HTTP Error:", e.code, url)
+                logger.debug('\n trying to download it again scene: %s' % self.sceneInfo.name)
+                # Log shell
                 print("\n HTTP Error:", e.code, url)
-                print('\n trying to download it again scene: %s' % sceneName[:21])
+                print('\n trying to download it again scene: %s' % self.sceneInfo.name)
                 self.connect_earthexplorer()
                 self.download_file(url, download_dir, sceneName)
             else:
-                logger.error("HTTP Error:", e.code, url)
+                logger.error("HTTP Error:", e)
                 print("HTTP Error:", e.code, url)
+                raise e
         except urllib.error.URLError as e:
             print("URL Error:", e.reason, url)
-            logger.error("URL Error:", e.reason, url)
+            logger.error("URL Error: %s in %s" % (e, url))
+            raise e
         except ConnectionResetError as e:
             print('Error ConnectionResetError: %s' % e)
-            print('\n trying to download it again scene: %s' % sceneName[:21])
             logger.error('Error ConnectionResetError: %s' % e)
-            logger.debug('trying to download it again scene: %s' % sceneName[:21])
+            print('\n trying to download it again scene: %s' % self.sceneInfo.name)
+            logger.debug('trying to download it again scene: %s' % self.sceneInfo.name)
             self.download_file(url, download_dir, sceneName)
         except urllib.error.HTTPError as e:
             print('\n HttpError: %s' % e)
-            print('\n trying to download it again scene: %s' % sceneName[:21])
+            print('\n trying to download it again scene: %s' % self.sceneInfo.name)
             logger.error('HttpError: %s' % e)
-            logger.debug('trying to download it again scene: %s' % sceneName[:21])
+            logger.debug('trying to download it again scene: %s' % self.sceneInfo.name)
             self.download_file(url, download_dir, sceneName)
         except Exception as error:
-            print('\n Error unknown: %s' % error)
+            logger.error('Error unknown %s in download %s at scene: %s' % (error, url, self.sceneInfo.name))
+            print('Error unknown %s in download % at scene: %s' % (error, url, self.sceneInfo.name))
+            logger.debug('trying to download it again scene: %s' % self.sceneInfo.name)
             self.download_file(url, download_dir, sceneName)
 
-        percent = floor((float(downloaded) / total_size) * 100)
+        percent = floor((float(downloaded) / total_size) * 100) or 0
         if percent != 100:
-            logger.debug('trying to download it again scene: %s' % sceneName[:21])
-            print('\n Download interrupted, trying to download it again scene: %s' % sceneName[:21])
+            logger.debug('trying to download it again scene: %s' % self.sceneInfo.name)
+            logger.error('Download interrupted in %s%%, trying to download it again scene: %s' % (
+                percent, self.sceneInfo.name))
+            print('\n Download interrupted in %s%%, trying to download it again scene: %s' % (
+                percent, self.sceneInfo.name))
             self.download_file(url, download_dir, sceneName)
 
         path_item = download_dir + '/' + sceneName
-        info = {'total_size': total_size, 'path_dir': download_dir,
-                'scene': sceneName, 'sucess': verify_sucess(total_size, path_item),
-                'file_path': path_item}
+        info = {'total_size': total_size_fmt, 'scene': self.sceneInfo.name,
+                'sucess': verify_sucess(total_size, path_item), 'file_path': path_item}
         return info
 
     def __repr__(self):
@@ -333,10 +353,13 @@ class RemoteFileDoesntExist(Exception):
     pass
 
 
+class SmallLandsatImageError(Exception):
+    pass
+
+
 class ProductInvalidError(Exception):
     pass
 
 
 class InvalidBandError(Exception):
     pass
-
